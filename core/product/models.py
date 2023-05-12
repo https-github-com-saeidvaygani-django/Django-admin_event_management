@@ -1,63 +1,86 @@
 from django.db import models
 from django.core.validators import MinLengthValidator, MaxLengthValidator, FileExtensionValidator
 
-class Students(models.Model):
-    National_id = models.CharField(max_length=10, unique=True, validators=[MinLengthValidator(10),MaxLengthValidator(10)])
-    Student_id = models.CharField(max_length=8, unique=True, validators=[MinLengthValidator(8),MaxLengthValidator(8)])
-    First_name = models.CharField(null=False, unique=False, max_length=50, blank=False)
-    Last_name = models.CharField(null=False, unique=False, max_length=50, blank=False)
-    Birth_date = models.DateField()
-    City_born = models.CharField(max_length=50)
-    Date_enterance = models.DateField()
-    major = models.ManyToManyField('Major', verbose_name='Majors')
-    study_courses = models.ManyToManyField('Courses')
-    Units_numbers = models.CharField(max_length=3)
-    is_study_now = models.BooleanField(default=True)
-    created_at = models.DateField(auto_now_add=True, editable=True)
-    image = models.ImageField(upload_to='media/Students/', validators=[FileExtensionValidator(['jpg', 'png'])])
-    
-    def Calculate_Units_numbers(self):
-        total_units = 0
+class EventTable(models.Model):
+    def validate_character_only(value):
+        if any(char.isdigit() for char in value):
+            raise ValidationError("Event name should not contain any numbers or digits.")
         
-        for study_courses in self.study_courses.all():
-            total_units += study_courses.Course_credit
-        
-        self.Units_numbers = total_units 
-        self.save()
-
-    def __str__(self):
-        return self.First_name + self.Last_name
-
-class Instructors(models.Model):
-    National_id = models.CharField(max_length=10, unique=True, validators=[MinLengthValidator(10),MaxLengthValidator(10)])
-    Instructor_id = models.CharField(max_length=9, unique=True, validators=[MinLengthValidator(9),MaxLengthValidator(9)])
-    First_name = models.CharField(null=False, unique=False, max_length=50, blank=False)
-    Last_name = models.CharField(null=False, unique=False, max_length=50, blank=False)
-    Birth_date = models.DateField(auto_now_add=True, editable=True)
-    City_born = models.CharField(max_length=50)
-    Instructor_degree = models.ForeignKey('Major', on_delete=models.CASCADE)
-    Teach_courses_id = models.ManyToManyField('Courses')
-    Instructor_salary = models.IntegerField()
-    is_instructor_now = models.BooleanField(default=True)
-    Description_Instructor = models.TextField(max_length=200)
-    image = models.ImageField(upload_to='media/Instructors/', validators=[FileExtensionValidator(['jpg', 'png'])])
+    id = models.IntegerField(primary_key=True, verbose_name = "EventTable Id")
+    name = models.CharField(max_length=50, verbose_name="Event Name", validators=[validate_character_only], unique=True)
+    description = models.TextField(max_length=250, verbose_name="Describe Event")
+    date = models.DateField(null=True, auto_now=True, editable=True)
+    location = models.TextField(max_length=100, verbose_name="Event Location")
+    image = models.ImageField(upload_to='media/events/', validators=[FileExtensionValidator(['jpg', 'png'])])
     
     def __str__(self):
-        return self.First_name + self.Last_name
-
-class Major(models.Model):
-    majors = models.CharField(max_length=50)
+        return self.name
+    
+class AttendeeTable(models.Model):
+    industries_choices=(
+        ('Association','Association'),
+        ('Refiners','Refiners'),
+        ('Crushers','Crushers'),
+        ('Others','Others'),
+    )
+    id = models.IntegerField(primary_key=True, verbose_name="AttendeeTable Id")
+    fname = models.CharField(max_length=50, verbose_name="First Name")
+    lname = models.CharField(max_length=50, verbose_name="Last Name")
+    company = models.CharField(max_length=50, verbose_name="Company")
+    country = models.CharField(max_length=50, verbose_name="Country")
+    phone = models.CharField(max_length=50, verbose_name="Phone")
+    email = models.EmailField(max_length=50, verbose_name="Email")
+    website = models.CharField(max_length=50, verbose_name="Website Address")
+    biography = models.TextField(max_length=200, verbose_name="Biography")
+    degree = models.CharField(max_length=50, verbose_name="Degree")
+    industries_type = models.CharField(max_length=30, verbose_name="Industy Type", choices=industries_choices)
+    event_id = models.ForeignKey(EventTable, on_delete = models.CASCADE, to_field='name')
+    payment_is = models.ManyToManyField('PaymentTable', verbose_name = "Payment Option" ,limit_choices_to={'payment_type__isnull': False} )
     
     def __str__(self):
-        return self.majors
+        return f"{self.fname} {self.lname}"
     
-
-class Courses(models.Model):
-    Name_course = models.CharField(max_length = 50 )
-    Course_credit = models.IntegerField()
-    Major_id = models.ForeignKey(Major, on_delete = models.CASCADE)
+class PaymentTable(models.Model):
+    payment_choices = (
+        ('Active (Early Bird)','Active (Early Bird)'),
+        ('Active (Standart)','Active (Standart)'),
+        ('Active (on site)','Active (on site)'),
+        ('Student (Early Bird)','Student (Early Bird)'),
+        ('Student (Standart)','Student (Standart)'),
+        ('Student (on site)','Student (on site)'),
+    )
+    id = models.IntegerField(primary_key=True, verbose_name="PaymentTable Id")
+    payment_type = models.CharField(max_length=50, verbose_name="Payment Type",choices = payment_choices)
+    amount = models.IntegerField(verbose_name="Amount")
     
     def __str__(self):
-        return self.Name_course
+        return self.payment_type
     
+class SpeakersTable(models.Model):
+    Speakers_degree_choices = (
+    ("Associate's Degree","Associate's Degree"),
+    ("Bachelor's Degree","Bachelor's Degree"),
+    ("Master's Degree","Master's Degree"),
+    ("Doctorate Degree","Doctorate Degree"),
+    )
+    id = models.IntegerField(primary_key=True, verbose_name="SpeakersTable Id")
+    fname = models.CharField(max_length=50, verbose_name="First Name")
+    lname = models.CharField(max_length=50, verbose_name="Last Name")
+    biography = models.CharField(max_length=200, verbose_name="Biography")
+    degree = models.CharField(max_length=50, choices=Speakers_degree_choices, verbose_name="Degree")
+    event_id = models.ManyToManyField(EventTable, verbose_name="Event id",limit_choices_to={'name__isnull': False})
     
+    def __str__(self):
+        return f"{self.fname} {self.lname}"
+    
+class SessionTable(models.Model):
+    id = models.IntegerField(primary_key=True, verbose_name="SessionTable Id")
+    title = models.CharField(max_length=50, verbose_name="Title")
+    description = models.TextField(max_length=200, verbose_name="Descripton")
+    start_time = models.DateField(auto_now=True, editable=True, verbose_name="Start Time", null=True)
+    end_time = models.DateField(auto_now=True, editable=True, verbose_name="End Time", null=True)
+    event_id = models.ManyToManyField(EventTable, verbose_name="Event Id", limit_choices_to={'name__isnull': False})
+    speaker_id = models.ForeignKey(SpeakersTable, on_delete=models.CASCADE)
+    
+    def __str__(self):
+        return self.title
